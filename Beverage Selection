@@ -1,0 +1,5 @@
+SELECT 
+    beverage_name
+FROM beverages
+WHERE temperature = 'Cold'
+AND price < 50;
