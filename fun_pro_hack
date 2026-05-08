@@ -1,0 +1,304 @@
+--DISPLAY ALL PAYMENT DETAILS (PROCEDURE)
+
+SQL> create or replace procedure display_all_payments
+  2  is
+  3      cursor c is
+  4          select payment_id, amount, payment_mode, payment_status
+  5          from payment;
+  6      v_id payment.payment_id%type;
+  7      v_amt payment.amount%type;
+  8      v_mode payment.payment_mode%type;
+  9      v_status payment.payment_status%type;
+ 10  begin
+ 11      open c;
+ 12      loop
+ 13          fetch c into v_id, v_amt, v_mode, v_status;
+ 14          exit when c%notfound;
+ 15          dbms_output.put_line(v_id || ' ' || v_amt || ' ' || v_mode || ' ' || v_status);
+ 16      end loop;
+ 17      close c;
+ 18  end;
+ 19  /
+
+Procedure created.
+
+SQL> set serveroutput on;
+SQL> exec display_all_payments;
+1 67500 Cash Completed
+2 22000 Card Completed
+3 32000 UPI Pending
+4 27000 Cash Completed
+5 17000 Card Cancelled
+6 20000 UPI Completed
+7 62000 Cash Pending
+8 24000 Card Completed
+99 -500 cash paid
+100 5000 cash paid
+101 2000 CASH PAID
+600 3500 upi paid
+200 4000 card paid
+201 3000 cash paid
+
+PL/SQL procedure successfully completed.
+
+--DISPLAY ALL PAYMENT MODES (FUNCTION)
+
+SQL> create or replace function display_payment_modes
+  2  return varchar2
+  3  is
+  4      v_result varchar2(4000);
+  5  begin
+  6      v_result := 'payment modes: ';
+  7      for rec in (select distinct payment_mode from payment)
+  8      loop
+  9          v_result := v_result || rec.payment_mode || ', ';
+ 10      end loop;
+ 11      return v_result;
+ 12  end;
+ 13  /
+
+Function created.
+
+SQL> begin
+  2      dbms_output.put_line(display_payment_modes);
+  3  end;
+  4  /
+payment modes: Cash, Card, UPI, cash, CASH, upi, card,
+
+PL/SQL procedure successfully completed.
+
+--HIGHEST PAYMENT PER EVENT (PROCEDURE)
+
+SQL> create or replace procedure highest_payment_event
+  2  is
+  3      cursor event_cur is select distinct event_id from payment;
+  4      cursor pay_cur(eid number) is
+  5          select payment_id, amount
+  6          from payment
+  7          where event_id = eid;
+  8      v_max number;
+  9  begin
+ 10      for e in event_cur loop
+ 11          select max(amount) into v_max
+ 12          from payment
+ 13          where event_id = e.event_id;
+ 14          for p in pay_cur(e.event_id) loop
+ 15              if p.amount = v_max then
+ 16                  dbms_output.put_line('event: ' || e.event_id ||
+ 17                                       ' payment: ' || p.payment_id ||
+ 18                                       ' amount: ' || p.amount);
+ 19              end if;
+ 20          end loop;
+ 21      end loop;
+ 22  end;
+ 23  /
+
+Procedure created.
+
+SQL> exec highest_payment_event;
+event: 1 payment: 1 amount: 67500
+event: 2 payment: 2 amount: 22000
+event: 3 payment: 3 amount: 32000
+event: 4 payment: 4 amount: 27000
+event: 5 payment: 5 amount: 17000
+event: 6 payment: 6 amount: 20000
+event: 7 payment: 7 amount: 62000
+event: 8 payment: 8 amount: 24000
+
+PL/SQL procedure successfully completed.
+
+--AVERAGE PAYMENT PER MODE (FUNCTION)
+
+SQL> create or replace function avg_payment_mode
+  2  return varchar2
+  3  is
+  4      v_result varchar2(4000) := '';
+  5  begin
+  6      for rec in (
+  7          select payment_mode, avg(amount) as avg_amt
+  8          from payment
+  9          group by payment_mode
+ 10      )
+ 11      loop
+ 12          v_result := v_result || rec.payment_mode || ' - ' || rec.avg_amt || chr(10);
+ 13      end loop;
+ 14      return v_result;
+ 15  end;
+ 16  /
+
+Function created.
+
+SQL> begin
+  2      dbms_output.put_line(avg_payment_mode);
+  3  end;
+  4  /
+Cash - 52166.6666666666666666666666666666666667
+Card - 21000
+UPI - 26000
+cash -
+2500
+CASH - 2000
+upi - 3500
+card - 4000
+
+
+PL/SQL procedure successfully completed.
+
+--EVENT WITH MAXIMUM BOOKING (PROCEDURE)
+
+SQL> create or replace procedure max_booking_event
+  2  is
+  3      v_event number;
+  4  begin
+  5      select event_id into v_event
+  6      from (
+  7          select event_id, count(*) cnt
+  8          from booking
+  9          group by event_id
+ 10          order by cnt desc
+ 11      )
+ 12      where rownum = 1;
+ 13      dbms_output.put_line('event with max bookings: ' || v_event);
+ 14  end;
+ 15  /
+
+Procedure created.
+
+SQL> exec max_booking_event;
+event with max bookings: 1
+
+PL/SQL procedure successfully completed.
+
+--PAYMENTS GREATER THAN AVERGAE (PROCEDURE)
+
+SQL> create or replace procedure payments_above_avg
+  2  is
+  3      v_avg number;
+  4  begin
+  5      select avg(amount) into v_avg from payment;
+  6      for rec in (
+  7          select payment_id, amount
+  8          from payment
+  9          where amount > v_avg
+ 10      )
+ 11      loop
+ 12          dbms_output.put_line(rec.payment_id || ' ' || rec.amount);
+ 13      end loop;
+ 14  end;
+ 15  /
+
+Procedure created.
+
+SQL> exec payments_above_avg;
+1 67500
+2 22000
+3 32000
+4 27000
+7 62000
+8 24000
+
+PL/SQL procedure successfully completed.
+
+--COUNT BOOKINGS BY STATUS (FUNCTION)
+
+SQL> create or replace function count_booking_status(p_status varchar2)
+  2  return number
+  3  is
+  4      v_count number;
+  5  begin
+  6      select count(*) into v_count
+  7      from booking
+  8      where booking_status = p_status;
+  9      return v_count;
+ 10  end;
+ 11  /
+
+Function created.
+
+SQL> select count_booking_status('confirmed') from dual;
+
+COUNT_BOOKING_STATUS('CONFIRMED')
+---------------------------------
+                                3
+
+--DISPLAY BOOKINGS FOR CUSTOMER (PROCEDURE)
+
+SQL> create or replace procedure bookings_by_customer(p_cust number)
+  2  is
+  3  begin
+  4      for rec in (
+  5          select booking_id, booking_status
+  6          from booking
+  7          where customer_id = p_cust
+  8      )
+  9      loop
+ 10          dbms_output.put_line(rec.booking_id || ' ' || rec.booking_status);
+ 11      end loop;
+ 12  end;
+ 13  /
+
+Procedure created.
+
+SQL> exec bookings_by_customer(1);
+1 Confirmed
+9 confirmed
+500 confirmed
+600 confirmed
+
+PL/SQL procedure successfully completed.
+
+--TOTAL PAYMENT FOR AN EVENT (FUNCTION)
+
+SQL> create or replace function total_payment_event(p_event number)
+  2  return number
+  3  is
+  4      v_total number;
+  5  begin
+  6      select sum(amount) into v_total
+  7      from payment
+  8      where event_id = p_event;
+  9      return v_total;
+ 10  end;
+ 11  /
+
+Function created.
+
+SQL> select total_payment_event(1) from dual;
+
+TOTAL_PAYMENT_EVENT(1)
+----------------------
+                 84500
+
+--BOOKINGS WITH REMARKS (PROCEDURE)
+
+SQL> create or replace procedure booking_with_remarks
+  2  is
+  3  begin
+  4      for rec in (
+  5          select booking_id, remarks
+  6          from booking
+  7          where remarks is not null
+  8      )
+  9      loop
+ 10          dbms_output.put_line(rec.booking_id || ' - ' || rec.remarks);
+ 11      end loop;
+ 12  end;
+ 13  /
+
+Procedure created.
+
+SQL> exec booking_with_remarks;
+1 - updated test
+2 - VIP
+3 - Urgent
+4 - None
+5 - None
+6 - None
+7 - Crowd
+8 - None
+9 - test
+500 - auto entry
+600 - new booking
+
+PL/SQL procedure successfully completed.
+
