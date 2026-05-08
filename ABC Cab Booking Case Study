@@ -1,0 +1,8 @@
+SELECT 
+    customer_name,
+    pickup_location,
+    drop_location,
+    fare
+FROM cab_booking
+WHERE fare > 500
+ORDER BY fare DESC;
